@@ -134,7 +134,7 @@ func isDigit(ch rune) bool {
 
 func isIdentifier(ch rune) bool {
 	return 'a' <= ch && ch <= 'z' || 'A' <= ch && ch <= 'Z' || ch == '_' ||
-		ch >= utf8.RuneSelf && unicode.IsLetter(ch)
+		ch >= utf8.RuneSelf && unicode.IsLetter(ch) || isDigit(ch)
 }
 
 func (l *Lexer) readIdentifier() string {
