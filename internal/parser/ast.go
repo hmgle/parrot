@@ -367,6 +367,19 @@ func (call *Call) Eval(env *object.Env) object.Object {
 			args = append(args, a.Eval(env))
 		}
 		return fn(args...)
+	case *object.Function:
+		if len(call.args) != len(fn.Params) {
+			return object.NewError(
+				"wrong number of arguments: expected %d, got %d",
+				len(fn.Params),
+				len(call.args),
+			)
+		}
+		newEnv := object.NewEnvWrap(env)
+		for i, a := range call.args {
+			newEnv.Set(fn.Params[i], a.Eval(env))
+		}
+		return fn.Body.(*Program).Eval(newEnv)
 	default:
 		panic("call not implemented") // TODO: Implement
 	}
@@ -388,6 +401,35 @@ func (assign *Assign) Eval(env *object.Env) object.Object {
 	lv := assign.Left.String()
 	rv := assign.Right.Eval(env)
 	return env.Set(lv, rv)
+}
+
+type Function struct {
+	Params []*Ident
+	Body   *Program
+	Name   string
+}
+
+func (function *Function) String() string {
+	var params []string
+	for _, p := range function.Params {
+		params = append(params, p.String())
+	}
+	return fmt.Sprintf("fn(%s) {%v}", strings.Join(params, ","), function.Body)
+}
+
+func (function *Function) Eval(env *object.Env) object.Object {
+	var params []string
+
+	for _, p := range function.Params {
+		params = append(params, p.String())
+	}
+	fn := &object.Function{
+		Params: params,
+		Body:   function.Body,
+		Env:    env,
+	}
+	env.Set(function.Name, fn)
+	return fn
 }
 
 type InfixExpr struct {

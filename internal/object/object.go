@@ -9,13 +9,14 @@ import (
 type Type string
 
 const (
-	NULLType    Type = "null"
-	ERRORType   Type = "error"
-	IntType     Type = "int"
-	BoolType    Type = "bool"
-	StringType  Type = "string"
-	ListType    Type = "list"
-	BuiltinType Type = "builtin"
+	NULLType     Type = "null"
+	ERRORType    Type = "error"
+	IntType      Type = "int"
+	BoolType     Type = "bool"
+	StringType   Type = "string"
+	ListType     Type = "list"
+	FunctionType      = "function"
+	BuiltinType  Type = "builtin"
 )
 
 func (t Type) String() string {
@@ -103,9 +104,9 @@ type Function struct {
 }
 
 func (function *Function) Type() Type {
-	panic("not implemented") // TODO: Implement
+	return FunctionType
 }
 
 func (function *Function) String() string {
-	panic("not implemented") // TODO: Implement
+	return fmt.Sprintf("fn(%s) { %v }", strings.Join(function.Params, ", "), function.Body)
 }

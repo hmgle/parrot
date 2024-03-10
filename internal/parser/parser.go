@@ -174,6 +174,63 @@ func lbrkNud(p *Parser) (e Expr) {
 	return list
 }
 
+func funcNud(p *Parser) (e Expr) {
+	expression := &Function{
+		Params: []*Ident{},
+		Body:   &Program{},
+		Name:   "",
+	}
+	if p.peekToken.Type != token.LPAR {
+		p.nextToken()
+		expression.Name = p.curToken.Literal
+	}
+	if !p.expectPeek(token.LPAR) {
+		return nil
+	}
+	expression.Params = parseFuncParams(p)
+	if !p.expectPeek(token.LBRACE) {
+		return nil
+	}
+	expression.Body = parseBlock(p)
+	return expression
+}
+
+func parseFuncParams(p *Parser) (params []*Ident) {
+	if p.peekToken.Type == token.RPAR {
+		p.nextToken()
+		return
+	}
+	p.nextToken()
+	params = append(params, &Ident{
+		Name: p.curToken.Literal,
+		Pos:  p.curToken.Pos,
+	})
+	for p.peekToken.Type == token.COMMA {
+		p.nextToken()
+		p.nextToken()
+		params = append(params, &Ident{
+			Name: p.curToken.Literal,
+			Pos:  p.curToken.Pos,
+		})
+	}
+	if !p.expectPeek(token.RPAR) {
+		return nil
+	}
+	return
+}
+
+func parseBlock(p *Parser) (block *Program) {
+	p.nextToken()
+	block = &Program{}
+	for p.curToken.Type != token.RBRACE && p.curToken.Type != token.EOF {
+		if s := p.parseStmt(); s != nil {
+			block.Stmts = append(block.Stmts, s)
+		}
+		p.nextToken()
+	}
+	return
+}
+
 func parseNodeList(p *Parser, sep, end token.Type) (list []Expr) {
 	p.nextToken()
 	if p.curToken.Type == end {
@@ -339,6 +396,7 @@ func init() {
 	prefixParsers[token.ADD] = prefixNud // XXX
 	prefixParsers[token.LPAR] = lparNud
 	prefixParsers[token.LBRK] = lbrkNud
+	prefixParsers[token.FUNCTION] = funcNud
 
 	infixParsers[token.ADD] = infixLed
 	infixParsers[token.MINUS] = infixLed

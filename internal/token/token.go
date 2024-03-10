@@ -57,6 +57,7 @@ const (
 
 	RANGE
 	INDEX
+	FUNCTION
 
 	CntToken
 )
@@ -107,8 +108,9 @@ var typeNames = [...]string{
 	COMMA:     ",",
 	SEMICOLON: ";",
 
-	RANGE: "range",
-	INDEX: "index",
+	RANGE:    "range",
+	INDEX:    "index",
+	FUNCTION: "function",
 }
 
 func (t Type) String() string {
@@ -124,6 +126,7 @@ var keywords = map[string]Type{
 
 	"in":     IN,
 	"regexp": REG,
+	"fn":     FUNCTION,
 }
 
 func LookupKeyWord(identifier string) Type {
