@@ -355,7 +355,11 @@ type Call struct {
 }
 
 func (call *Call) String() string {
-	panic("not implemented") // TODO: Implement
+	var args []string
+	for _, a := range call.args {
+		args = append(args, a.String())
+	}
+	return fmt.Sprintf("%v(%s)", call.fn, strings.Join(args, ", "))
 }
 
 func (call *Call) Eval(env *object.Env) object.Object {
@@ -381,7 +385,7 @@ func (call *Call) Eval(env *object.Env) object.Object {
 		}
 		return fn.Body.(*Program).Eval(newEnv)
 	default:
-		panic("call not implemented") // TODO: Implement
+		return object.NewError("%q object is not callable", fnObj.Type())
 	}
 }
 

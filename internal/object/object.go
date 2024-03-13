@@ -15,7 +15,7 @@ const (
 	BoolType     Type = "bool"
 	StringType   Type = "string"
 	ListType     Type = "list"
-	FunctionType      = "function"
+	FunctionType Type = "function"
 	BuiltinType  Type = "builtin"
 )
 
