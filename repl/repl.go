@@ -5,6 +5,7 @@ import (
 	"io"
 	"parrot/internal/object"
 	"parrot/internal/parser"
+	"strings"
 
 	"github.com/chzyer/readline"
 )
@@ -19,25 +20,42 @@ func EvalREPL() {
 	}
 	defer rl.Close()
 
+	var accumulatedInput []string
+
 	for {
-		input, err := rl.Readline()
+		line, err := rl.Readline()
 		if err != nil {
 			if err != io.EOF {
 				fmt.Println(err)
 			}
 			return
 		}
+		accumulatedInput = append(accumulatedInput, line)
+		input := strings.Join(accumulatedInput, "\n")
+
 		prog, errs := parser.Parse(input)
 		if len(errs) > 0 {
-			for _, e := range errs {
-				fmt.Println(e)
+			// Here, check if error is due to incomplete input.
+			isIncomplete := true
+
+			if isIncomplete {
+				rl.SetPrompt("... ")
+				continue
+			} else {
+				for _, e := range errs {
+					fmt.Println(e)
+				}
+				accumulatedInput = []string{} // Reset accumulated input
+				rl.SetPrompt(">>> ")
+				continue
 			}
-			continue
 		}
 		if val := prog.Eval(env); val != nil && val != object.NULLObj {
 			fmt.Println(val)
 		} else {
 			fmt.Printf("val: %+v\n", val)
 		}
+		accumulatedInput = []string{} // Reset accumulated input after successful execution.
+		rl.SetPrompt(">>> ")
 	}
 }
