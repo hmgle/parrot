@@ -1,15 +1,19 @@
 package parser
 
 import (
+	"errors"
 	"fmt"
 	"parrot/internal/lexer"
 	"parrot/internal/token"
 	"strconv"
 )
 
+var ErrEof = errors.New("got eof")
+
 type Error struct {
 	Pos int
 	Msg string
+	Err error
 }
 
 type Parser struct {
@@ -34,11 +38,16 @@ func (p *Parser) nextToken() {
 func (p *Parser) parseExpr(rbp int) (e Expr) {
 	prefixFn := prefixParsers[p.curToken.Type]
 	if prefixFn == nil {
+		var err error
+		if p.curToken.Type == token.EOF {
+			err = ErrEof
+		}
 		p.errs = append(p.errs, &Error{
 			Pos: p.curToken.Pos,
 			Msg: fmt.Sprintf("got '%s', want primary expr", p.curToken.Literal),
+			Err: err,
 		})
-		return
+		panic(err)
 	}
 	left := prefixFn(p)
 	for p.peekToken.Type != token.SEMICOLON && rbp < bindingPower[p.peekToken.Type] {
@@ -69,8 +78,12 @@ func (p *Parser) parseStmt() (s Stmt) {
 	return p.parseExprStmt()
 }
 
-func (p *Parser) Parse() (*Program, []*Error) {
-	prog := &Program{}
+func (p *Parser) Parse() (prog *Program, errs []*Error) {
+	prog = &Program{}
+	defer func() {
+		_ = recover()
+		errs = p.errs
+	}()
 	for p.curToken.Type != token.EOF {
 		if s := p.parseStmt(); s != nil {
 			prog.Stmts = append(prog.Stmts, s)
@@ -81,10 +94,16 @@ func (p *Parser) Parse() (*Program, []*Error) {
 }
 
 func (p *Parser) peekError(t token.Type) {
+	var err error
+	if p.peekToken.Type == token.EOF {
+		err = ErrEof
+	}
 	p.errs = append(p.errs, &Error{
 		Pos: p.peekToken.Pos,
 		Msg: fmt.Sprintf("expected next token to be %v, got %v insted", t, p.peekToken.Type),
+		Err: err,
 	})
+	panic(nil)
 }
 
 func (p *Parser) expectPeek(t token.Type) bool {

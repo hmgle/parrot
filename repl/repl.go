@@ -1,6 +1,7 @@
 package repl
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"parrot/internal/object"
@@ -36,7 +37,10 @@ func EvalREPL() {
 		prog, errs := parser.Parse(input)
 		if len(errs) > 0 {
 			// Here, check if error is due to incomplete input.
-			isIncomplete := true
+			isIncomplete := false
+			if errors.Is(errs[len(errs)-1].Err, parser.ErrEof) {
+				isIncomplete = true
+			}
 
 			if isIncomplete {
 				rl.SetPrompt("... ")
