@@ -56,8 +56,6 @@ func EvalREPL() {
 		}
 		if val := prog.Eval(env); val != nil && val != object.NULLObj {
 			fmt.Println(val)
-		} else {
-			fmt.Printf("val: %+v\n", val)
 		}
 		accumulatedInput = []string{} // Reset accumulated input after successful execution.
 		rl.SetPrompt(">>> ")
