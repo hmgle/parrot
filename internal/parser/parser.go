@@ -247,6 +247,10 @@ func parseBlock(p *Parser) (block *Program) {
 		}
 		p.nextToken()
 	}
+	if p.curToken.Type != token.RBRACE {
+		p.peekError(token.RBRACE)
+		return nil
+	}
 	return
 }
 
