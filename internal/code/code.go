@@ -11,6 +11,10 @@ const (
 	OpAnd
 	OpOr
 
+	// Prefix
+	OpBang
+	OpMinus
+
 	OpCmpEQ
 	OpCmpNE
 	OpCmpLT
@@ -24,9 +28,22 @@ const (
 	OpDiv
 	OpMod
 
-	HAVE_ARGUMENT // OpCodes from here have an argument
+	OpCall
+	OpReturnValue
+
+	OpCurrentClosure
+
+	HAVE_ARGUMENT // OpCodes from here have an argument:
 
 	OpConstant
+	OpGetGlobal
+	OpSetGlobal
+	OpGetLocal
+	OpSetLocal
+	OpGetBuiltin
+	OpGetFree
+
+	OpList
 )
 
 // If op has an argument
