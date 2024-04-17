@@ -2,6 +2,8 @@ package parser
 
 import (
 	"fmt"
+	"parrot/internal/code"
+	"parrot/internal/compile"
 	"parrot/internal/object"
 	"parrot/internal/token"
 	"strings"
@@ -11,6 +13,7 @@ import (
 type Node interface {
 	String() string
 	// TODO position of the node.
+	compile.Compilable
 }
 
 // Stmt represents a statement in the AST.
@@ -29,6 +32,9 @@ func (exprstmt *ExprStmt) String() string {
 }
 
 func (exprstmt *ExprStmt) stmt() {}
+func (expresmt *ExprStmt) Compile(c *compile.Compiler) error {
+	return expresmt.E.Compile(c)
+}
 
 type Expr interface {
 	Node
@@ -53,6 +59,16 @@ func (p *Program) Eval(env *object.Env) object.Object {
 	return ret
 }
 
+func (p *Program) Compile(c *compile.Compiler) error {
+	for _, stmt := range p.Stmts {
+		err := stmt.Compile(c)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 type Ident struct {
 	Name string
 	Pos  int
@@ -70,6 +86,14 @@ func (ident *Ident) Eval(env *object.Env) object.Object {
 		return o
 	}
 	return object.NewError("%d: name %q is not defined", ident.Pos+1, ident)
+}
+
+func (ident *Ident) Compile(c *compile.Compiler) error {
+	if symbol, ok := c.Resolve(ident.Name); ok {
+		c.LoadSymbol(symbol)
+		return nil
+	}
+	return fmt.Errorf("undefined variable %s", ident.Name)
 }
 
 type Boolean struct {
@@ -91,6 +115,15 @@ func (boolean *Boolean) Eval(env *object.Env) object.Object {
 	return object.FALSEObj
 }
 
+func (boolean *Boolean) Compile(c *compile.Compiler) error {
+	if boolean.Value {
+		c.Op(code.OpTrue)
+	} else {
+		c.Op(code.OpFalse)
+	}
+	return nil
+}
+
 type String struct {
 	Literal string
 	Pos     int
@@ -102,6 +135,12 @@ func (s *String) String() string {
 
 func (s *String) Eval(env *object.Env) object.Object {
 	return object.NewString(s.Literal)
+}
+
+func (s *String) Compile(c *compile.Compiler) error {
+	o := object.NewString(s.Literal)
+	c.OpArg(code.OpConstant, c.Const(o))
+	return nil
 }
 
 type Integer struct {
@@ -117,6 +156,12 @@ func (n *Integer) String() string {
 func (n *Integer) Eval(env *object.Env) object.Object {
 	v := object.Integer(n.Value)
 	return &v
+}
+
+func (n *Integer) Compile(c *compile.Compiler) error {
+	o := object.Integer(n.Value)
+	c.OpArg(code.OpConstant, c.Const(&o))
+	return nil
 }
 
 // ListExpr represents a list literal: [ List ].
@@ -141,6 +186,16 @@ func (listexpr *ListExpr) Eval(env *object.Env) object.Object {
 		objs = append(objs, o)
 	}
 	return object.NewList(objs...)
+}
+
+func (listexpr *ListExpr) Compile(c *compile.Compiler) error {
+	for _, n := range listexpr.List {
+		if err := n.Compile(c); err != nil {
+			return err
+		}
+	}
+	c.OpArg(code.OpList, uint32(len(listexpr.List)))
+	return nil
 }
 
 type PrefixExpr struct {
@@ -180,6 +235,22 @@ func (prefixexpr *PrefixExpr) Eval(env *object.Env) object.Object {
 	return object.NewError("runtime error: %s%s", prefixexpr.Literal, right.String())
 }
 
+func (prefixexpr *PrefixExpr) Compile(c *compile.Compiler) error {
+	switch prefixexpr.TokenType {
+	case token.BANG:
+		prefixexpr.Right.Compile(c)
+		c.Op(code.OpBang)
+		return nil
+	case token.MINUS:
+		prefixexpr.Right.Compile(c)
+		c.Op(code.OpMinus)
+		return nil
+	case token.ADD:
+		return prefixexpr.Right.Compile(c)
+	}
+	return fmt.Errorf("runtime error: %s", prefixexpr.Literal)
+}
+
 // IndexExpr represents an index expression: Left[Index].
 type IndexExpr struct {
 	Left      Expr
@@ -202,6 +273,11 @@ func (i *IndexExpr) Eval(env *object.Env) object.Object {
 		return idx
 	}
 	return evalIndexExpr(lft, idx)
+}
+
+func (i *IndexExpr) Compile(c *compile.Compiler) error {
+	// TODO
+	panic("not implemented")
 }
 
 func evalIndexExpr(left, index object.Object) object.Object {
@@ -267,6 +343,11 @@ func (s *SliceExpr) Eval(env *object.Env) object.Object {
 		}
 	}
 	return evalSliceExpr(lftObj, loObj, hiObj, stepObj)
+}
+
+func (s *SliceExpr) Compile(c *compile.Compiler) error {
+	// TODO
+	panic("not implemented")
 }
 
 func evalSliceExpr(leftObj, loObj, hiObj, stepObj object.Object) object.Object {
@@ -389,6 +470,11 @@ func (call *Call) Eval(env *object.Env) object.Object {
 	}
 }
 
+func (call *Call) Compile(c *compile.Compiler) error {
+	// TODO
+	panic("not implemented")
+}
+
 type Assign struct {
 	TokenType token.Type
 	Left      Expr
@@ -405,6 +491,17 @@ func (assign *Assign) Eval(env *object.Env) object.Object {
 	lv := assign.Left.String()
 	rv := assign.Right.Eval(env)
 	return env.Set(lv, rv)
+}
+
+func (assign *Assign) Compile(c *compile.Compiler) error {
+	symbol := c.Define(assign.Left.String())
+	assign.Right.Compile(c)
+	if symbol.Scope == compile.GlobalScope {
+		c.OpArg(code.OpSetGlobal, uint32(symbol.Index))
+	} else {
+		c.OpArg(code.OpSetLocal, uint32(symbol.Index))
+	}
+	return nil
 }
 
 type Function struct {
@@ -434,6 +531,11 @@ func (function *Function) Eval(env *object.Env) object.Object {
 	}
 	env.Set(function.Name, fn)
 	return fn
+}
+
+func (function *Function) Compile(c *compile.Compiler) error {
+	// TODO
+	panic("not implemented")
 }
 
 type InfixExpr struct {
@@ -562,6 +664,44 @@ func evalStringInfix(infixexpr *InfixExpr, left, right object.Object) object.Obj
 	}
 	return object.NewError("pos: %d: runtime error: unkown operator: %s %s %s",
 		infixexpr.Pos, left.String(), infixexpr.Literal, right.String())
+}
+
+func (infixexpr *InfixExpr) Compile(c *compile.Compiler) error {
+	infixexpr.Left.Compile(c)
+	infixexpr.Right.Compile(c)
+	var op code.OpCode
+	switch infixexpr.TokenType {
+	case token.ADD:
+		op = code.OpAdd
+	case token.MINUS:
+		op = code.OpSub
+	case token.MUL:
+		op = code.OpMul
+	case token.DIV:
+		op = code.OpDiv
+	case token.MOD:
+		op = code.OpMod
+	case token.GT:
+		op = code.OpCmpGT
+	case token.GE:
+		op = code.OpCmpGE
+	case token.EQ:
+		op = code.OpCmpEQ
+	case token.NOTEQ:
+		op = code.OpCmpNE
+	case token.LT:
+		op = code.OpCmpLT
+	case token.LE:
+		op = code.OpCmpLE
+	case token.AND:
+		op = code.OpAnd
+	case token.OR:
+		op = code.OpOr
+	default:
+		panic(fmt.Sprintf("unkown BinOp: %s", infixexpr.TokenType))
+	}
+	c.Op(op)
+	return nil
 }
 
 func isError(obj object.Object) bool {
