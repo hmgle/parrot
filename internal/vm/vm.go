@@ -72,6 +72,8 @@ func (vm *VM) Run() (err error) {
 				vm.doMinus()
 			case code.OpBang:
 				vm.doBang()
+			case code.OpIndex:
+				vm.doIndex()
 			default:
 				panic("not implemented") // TODO: Implement
 			}
@@ -102,6 +104,36 @@ func (vm *VM) doStoreGlobal(index int) {
 
 func (vm *VM) doLoadConst(index int) {
 	_ = vm.push(vm.constants[index])
+}
+
+func (vm *VM) doIndex() {
+	index := vm.pop()
+	left := vm.Top()
+	switch {
+	case left.Type() == object.ListType && index.Type() == object.IntType:
+		l := left.(*object.List)
+		i := index.(*object.Integer)
+		var o object.Object
+		if int(*i) >= len(*l) {
+			o = object.NewError("index out of range")
+		} else {
+			i := index.(*object.Integer)
+			o = (*l)[*i]
+		}
+		vm.setTop(o)
+	case left.Type() == object.StringType && index.Type() == object.IntType:
+		s := left.(*object.String)
+		i := index.(*object.Integer)
+		var o object.Object
+		if int(*i) >= len(*s) {
+			o = object.NewError("index out of range")
+		} else {
+			o = object.NewString(string(string(*s)[*i]))
+		}
+		vm.setTop(o)
+	default:
+		panic("not implemented") // TODO: Implement
+	}
 }
 
 func (vm *VM) doMinus() {

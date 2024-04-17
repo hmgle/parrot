@@ -14,6 +14,7 @@ const (
 	// Prefix
 	OpBang
 	OpMinus
+	OpIndex
 
 	OpCmpEQ
 	OpCmpNE
