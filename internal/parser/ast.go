@@ -276,8 +276,14 @@ func (i *IndexExpr) Eval(env *object.Env) object.Object {
 }
 
 func (i *IndexExpr) Compile(c *compile.Compiler) error {
-	// TODO
-	panic("not implemented")
+	if err := i.Left.Compile(c); err != nil {
+		return err
+	}
+	if err := i.Index.Compile(c); err != nil {
+		return err
+	}
+	c.Op(code.OpIndex)
+	return nil
 }
 
 func evalIndexExpr(left, index object.Object) object.Object {
