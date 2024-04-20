@@ -39,9 +39,10 @@ func New() *VM {
 }
 
 func (vm *VM) Next(constants []object.Object, opCodes compile.Instructions) {
-	vm.constants = append(vm.constants, constants...)
+	vm.constants = constants
 	vm.opCodes = opCodes
 	vm.ip = 0
+	vm.sp = 0
 }
 
 func (vm *VM) Run() (err error) {
