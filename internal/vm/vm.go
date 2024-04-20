@@ -27,15 +27,21 @@ type VM struct {
 	opCodes   compile.Instructions
 }
 
-func New(constants []object.Object, opCodes compile.Instructions) *VM {
+func New() *VM {
 	return &VM{
-		constants: constants,
+		constants: []object.Object{},
 		stack:     make([]object.Object, StackSize),
 		globals:   make([]object.Object, GlobalSize),
 		ip:        0,
 		sp:        0,
-		opCodes:   opCodes,
+		opCodes:   []compile.Instruction{},
 	}
+}
+
+func (vm *VM) Next(constants []object.Object, opCodes compile.Instructions) {
+	vm.constants = append(vm.constants, constants...)
+	vm.opCodes = opCodes
+	vm.ip = 0
 }
 
 func (vm *VM) Run() (err error) {
@@ -85,6 +91,8 @@ func (vm *VM) Run() (err error) {
 				vm.doStoreGlobal(int(o.Arg))
 			case code.OpGetGlobal:
 				vm.doGetGlobal(int(o.Arg))
+			case code.OpList:
+				vm.doList(int(o.Arg))
 			default:
 				panic("not implemented") // TODO: Implement
 			}
@@ -104,6 +112,16 @@ func (vm *VM) doStoreGlobal(index int) {
 
 func (vm *VM) doLoadConst(index int) {
 	_ = vm.push(vm.constants[index])
+}
+
+func (vm *VM) doList(llen int) {
+	var list []object.Object
+	for i := range llen {
+		list = append(list, vm.stack[vm.sp-llen+i])
+	}
+	l := object.NewList(list...)
+	vm.sp -= llen
+	_ = vm.push(l)
 }
 
 func (vm *VM) doIndex() {

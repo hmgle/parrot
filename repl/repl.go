@@ -23,6 +23,8 @@ func VMREPL() {
 
 	var accumulatedInput []string
 
+	machine := vm.New()
+	c := compile.New()
 	for {
 		line, err := rl.Readline()
 		if err != nil {
@@ -54,13 +56,12 @@ func VMREPL() {
 				continue
 			}
 		}
-		c := compile.New()
 		err = c.Compile(prog)
 		if err != nil {
 			fmt.Printf("err: %+v\n", err)
 			continue
 		}
-		machine := vm.New(c.Constants, c.OpCodes)
+		machine.Next(c.Constants, c.OpCodes)
 		if err = machine.Run(); err != nil {
 			fmt.Printf("runtime error: %v\n", err)
 			continue
