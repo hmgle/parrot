@@ -85,6 +85,8 @@ func (vm *VM) Run() (err error) {
 				vm.doStoreGlobal(int(o.Arg))
 			case code.OpGetGlobal:
 				vm.doGetGlobal(int(o.Arg))
+			case code.OpList:
+				vm.doList(int(o.Arg))
 			default:
 				panic("not implemented") // TODO: Implement
 			}
@@ -104,6 +106,16 @@ func (vm *VM) doStoreGlobal(index int) {
 
 func (vm *VM) doLoadConst(index int) {
 	_ = vm.push(vm.constants[index])
+}
+
+func (vm *VM) doList(llen int) {
+	var list []object.Object
+	for i := range llen {
+		list = append(list, vm.stack[vm.sp-llen+i])
+	}
+	l := object.NewList(list...)
+	vm.sp -= llen
+	vm.push(l)
 }
 
 func (vm *VM) doIndex() {
