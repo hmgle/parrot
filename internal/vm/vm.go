@@ -27,15 +27,21 @@ type VM struct {
 	opCodes   compile.Instructions
 }
 
-func New(constants []object.Object, opCodes compile.Instructions) *VM {
+func New() *VM {
 	return &VM{
-		constants: constants,
+		constants: []object.Object{},
 		stack:     make([]object.Object, StackSize),
 		globals:   make([]object.Object, GlobalSize),
 		ip:        0,
 		sp:        0,
-		opCodes:   opCodes,
+		opCodes:   []compile.Instruction{},
 	}
+}
+
+func (vm *VM) Next(constants []object.Object, opCodes compile.Instructions) {
+	vm.constants = append(vm.constants, constants...)
+	vm.opCodes = opCodes
+	vm.ip = 0
 }
 
 func (vm *VM) Run() (err error) {
@@ -115,7 +121,7 @@ func (vm *VM) doList(llen int) {
 	}
 	l := object.NewList(list...)
 	vm.sp -= llen
-	vm.push(l)
+	_ = vm.push(l)
 }
 
 func (vm *VM) doIndex() {
