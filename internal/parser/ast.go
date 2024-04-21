@@ -235,14 +235,20 @@ func (prefixexpr *PrefixExpr) Eval(env *object.Env) object.Object {
 	return object.NewError("runtime error: %s%s", prefixexpr.Literal, right.String())
 }
 
-func (prefixexpr *PrefixExpr) Compile(c *compile.Compiler) error {
+func (prefixexpr *PrefixExpr) Compile(c *compile.Compiler) (err error) {
 	switch prefixexpr.TokenType {
 	case token.BANG:
-		prefixexpr.Right.Compile(c)
+		err = prefixexpr.Right.Compile(c)
+		if err != nil {
+			return
+		}
 		c.Op(code.OpBang)
 		return nil
 	case token.MINUS:
-		prefixexpr.Right.Compile(c)
+		err = prefixexpr.Right.Compile(c)
+		if err != nil {
+			return
+		}
 		c.Op(code.OpMinus)
 		return nil
 	case token.ADD:
@@ -499,9 +505,12 @@ func (assign *Assign) Eval(env *object.Env) object.Object {
 	return env.Set(lv, rv)
 }
 
-func (assign *Assign) Compile(c *compile.Compiler) error {
+func (assign *Assign) Compile(c *compile.Compiler) (err error) {
 	symbol := c.Define(assign.Left.String())
-	assign.Right.Compile(c)
+	err = assign.Right.Compile(c)
+	if err != nil {
+		return
+	}
 	if symbol.Scope == compile.GlobalScope {
 		c.OpArg(code.OpSetGlobal, uint32(symbol.Index))
 	} else {
@@ -672,9 +681,15 @@ func evalStringInfix(infixexpr *InfixExpr, left, right object.Object) object.Obj
 		infixexpr.Pos, left.String(), infixexpr.Literal, right.String())
 }
 
-func (infixexpr *InfixExpr) Compile(c *compile.Compiler) error {
-	infixexpr.Left.Compile(c)
-	infixexpr.Right.Compile(c)
+func (infixexpr *InfixExpr) Compile(c *compile.Compiler) (err error) {
+	err = infixexpr.Left.Compile(c)
+	if err != nil {
+		return
+	}
+	err = infixexpr.Right.Compile(c)
+	if err != nil {
+		return
+	}
 	var op code.OpCode
 	switch infixexpr.TokenType {
 	case token.ADD:

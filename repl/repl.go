@@ -61,7 +61,7 @@ func VMREPL() {
 			fmt.Printf("err: %+v\n", err)
 			continue
 		}
-		machine.Next(c.Constants, c.OpCodes)
+		machine.Next(c.Constants, c.OpCodes.Output())
 		c.OpCodes = []compile.Instruction{}
 		c.Constants = []object.Object{}
 		if err = machine.Run(); err != nil {

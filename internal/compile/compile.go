@@ -1,9 +1,15 @@
 package compile
 
 import (
+	"bytes"
+	"encoding/binary"
 	"parrot/internal/code"
 	"parrot/internal/object"
 )
+
+type Instruction interface {
+	Output() []byte
+}
 
 // Resolved or unresolved instruction stream
 type Instructions []Instruction
@@ -13,8 +19,14 @@ func (is *Instructions) Add(i Instruction) {
 	*is = append(*is, i)
 }
 
-type Instruction interface {
-	Output() []byte
+var _ Instruction = (*Instructions)(nil)
+
+func (is *Instructions) Output() []byte {
+	var buf bytes.Buffer
+	for _, i := range *is {
+		buf.Write(i.Output())
+	}
+	return buf.Bytes()
 }
 
 type Op struct {
@@ -22,7 +34,7 @@ type Op struct {
 }
 
 func (op *Op) Output() []byte {
-	panic("not implemented") // TODO: Implement
+	return []byte{byte(op.Op)}
 }
 
 type OpArg struct {
@@ -31,7 +43,11 @@ type OpArg struct {
 }
 
 func (oparg *OpArg) Output() []byte {
-	panic("not implemented") // TODO: Implement
+	ret := [5]byte{
+		byte(oparg.Op),
+	}
+	binary.BigEndian.PutUint32(ret[1:], oparg.Arg)
+	return ret[:]
 }
 
 type Compilable interface {

@@ -3,7 +3,6 @@ package vm
 import (
 	"fmt"
 	"parrot/internal/code"
-	"parrot/internal/compile"
 	"parrot/internal/object"
 )
 
@@ -24,7 +23,7 @@ type VM struct {
 	globals   []object.Object
 	ip        int // instruction pointer
 	sp        int // Stack pointer: always points to the next free slot in the stack. Top of stack is stack[ip-1]
-	opCodes   compile.Instructions
+	opCodes   []byte
 }
 
 func New() *VM {
@@ -34,11 +33,11 @@ func New() *VM {
 		globals:   make([]object.Object, GlobalSize),
 		ip:        0,
 		sp:        0,
-		opCodes:   []compile.Instruction{},
+		opCodes:   []byte{},
 	}
 }
 
-func (vm *VM) Next(constants []object.Object, opCodes compile.Instructions) {
+func (vm *VM) Next(constants []object.Object, opCodes []byte) {
 	vm.constants = constants
 	vm.opCodes = opCodes
 	vm.ip = 0
@@ -49,57 +48,58 @@ func (vm *VM) Run() (err error) {
 	// TODO
 	for vm.ip < len(vm.opCodes) {
 		op := vm.opCodes[vm.ip]
+		opc := code.OpCode(op)
 		vm.ip += 1
-		switch o := op.(type) {
-		case *compile.Op:
-			switch o.Op {
-			case code.OpPop:
-				vm.pop()
-			case code.OpTrue:
-				err = vm.push(True)
-			case code.OpFalse:
-				err = vm.push(False)
-			case code.OpAnd:
-				vm.doAND()
-			case code.OpOr:
-				vm.doOR()
-			case code.OpCmpEQ, code.OpCmpNE, code.OpCmpLE, code.OpCmpGE, code.OpCmpLT, code.OpCmpGT:
-				vm.doCmp(o.Op)
-			case code.OpAdd:
-				vm.doAdd()
-			case code.OpSub:
-				vm.doSub()
-			case code.OpMul:
-				vm.doMul()
-			case code.OpDiv:
-				vm.doDiv()
-			case code.OpMod:
-				vm.doMod()
-			case code.OpMinus:
-				vm.doMinus()
-			case code.OpBang:
-				vm.doBang()
-			case code.OpIndex:
-				vm.doIndex()
-			default:
-				panic("not implemented") // TODO: Implement
-			}
-		case *compile.OpArg:
-			switch o.Op {
-			case code.OpConstant:
-				vm.doLoadConst(int(o.Arg))
-			case code.OpSetGlobal:
-				vm.doStoreGlobal(int(o.Arg))
-			case code.OpGetGlobal:
-				vm.doGetGlobal(int(o.Arg))
-			case code.OpList:
-				vm.doList(int(o.Arg))
-			default:
-				panic("not implemented") // TODO: Implement
-			}
+		switch opc {
+		case code.OpPop:
+			vm.pop()
+		case code.OpTrue:
+			err = vm.push(True)
+		case code.OpFalse:
+			err = vm.push(False)
+		case code.OpAnd:
+			vm.doAND()
+		case code.OpOr:
+			vm.doOR()
+		case code.OpCmpEQ, code.OpCmpNE, code.OpCmpLE, code.OpCmpGE, code.OpCmpLT, code.OpCmpGT:
+			vm.doCmp(opc)
+		case code.OpAdd:
+			vm.doAdd()
+		case code.OpSub:
+			vm.doSub()
+		case code.OpMul:
+			vm.doMul()
+		case code.OpDiv:
+			vm.doDiv()
+		case code.OpMod:
+			vm.doMod()
+		case code.OpMinus:
+			vm.doMinus()
+		case code.OpBang:
+			vm.doBang()
+		case code.OpIndex:
+			vm.doIndex()
+		case code.OpConstant:
+			arg := code.ReadUint32(vm.opCodes[vm.ip : vm.ip+4])
+			vm.doLoadConst(int(arg))
+			vm.ip += 4
+		case code.OpSetGlobal:
+			arg := code.ReadUint32(vm.opCodes[vm.ip : vm.ip+4])
+			vm.doStoreGlobal(int(arg))
+			vm.ip += 4
+		case code.OpGetGlobal:
+			arg := code.ReadUint32(vm.opCodes[vm.ip : vm.ip+4])
+			vm.doGetGlobal(int(arg))
+			vm.ip += 4
+		case code.OpList:
+			arg := code.ReadUint32(vm.opCodes[vm.ip : vm.ip+4])
+			vm.doList(int(arg))
+			vm.ip += 4
+		default:
+			panic("not implemented") // TODO: Implement
+
 		}
 	}
-
 	return err
 }
 
