@@ -109,7 +109,9 @@ func (vm *VM) Run() (err error) {
 			vm.doList(int(arg))
 			vm.currFrame.ip += 4
 		case code.OpCall:
-			err = vm.doCall()
+			arg := code.ReadUint32(vm.currFrame.opCodes[vm.currFrame.ip : vm.currFrame.ip+4])
+			err = vm.doCall(int(arg))
+			vm.currFrame.ip += 4
 		default:
 			panic("not implemented") // TODO: Implement
 
@@ -118,12 +120,19 @@ func (vm *VM) Run() (err error) {
 	return err
 }
 
-func (vm *VM) doCall() (err error) {
+func (vm *VM) doCall(argsCnt int) (err error) {
+	args := make([]object.Object, argsCnt)
+	for i := range argsCnt {
+		args[i] = vm.pop()
+	}
 	f := vm.pop()
 	if f.Type() != object.FunctionCompiledType {
 		return fmt.Errorf("not function type")
 	}
 	fn := f.(*object.FunctionCompiled)
+	if fn.ParamsCnt != int8(argsCnt) {
+		return fmt.Errorf("wrong number of arguments: expected %d, got %d", fn.ParamsCnt, argsCnt)
+	}
 	pf := vm.currFrame
 	nf := Frame{
 		opCodes:     fn.Instructions,
@@ -133,6 +142,9 @@ func (vm *VM) doCall() (err error) {
 	}
 	vm.currFrame = &nf
 	vm.sp = nf.basePointer + fn.LocalCnt
+	for i := range args {
+		vm.stack[nf.basePointer+i] = args[len(args)-i-1]
+	}
 	err = vm.Run()
 	if err != nil {
 		return

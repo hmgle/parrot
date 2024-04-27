@@ -487,7 +487,13 @@ func (call *Call) Compile(c *compile.Compiler) error {
 	if err != nil {
 		return err
 	}
-	c.Op(code.OpCall)
+	for _, arg := range call.args {
+		err = arg.Compile(c)
+		if err != nil {
+			return err
+		}
+	}
+	c.OpArg(code.OpCall, uint32(len(call.args)))
 	return nil
 }
 
@@ -554,6 +560,10 @@ func (function *Function) Eval(env *object.Env) object.Object {
 
 func (function *Function) Compile(c *compile.Compiler) (err error) {
 	nc := c.NewForFunction()
+
+	for _, param := range function.Params {
+		nc.Define(param.Name)
+	}
 
 	err = function.Body.Compile(nc)
 	if err != nil {

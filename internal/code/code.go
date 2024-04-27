@@ -31,7 +31,6 @@ const (
 	OpDiv
 	OpMod
 
-	OpCall
 	OpReturnValue
 
 	OpCurrentClosure
@@ -49,6 +48,7 @@ const (
 	OpList
 
 	OpFunction
+	OpCall
 )
 
 // If op has an argument
