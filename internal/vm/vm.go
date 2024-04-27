@@ -24,7 +24,7 @@ type Frame struct {
 }
 
 type VM struct {
-	constants []object.Object
+	constants *[]object.Object
 	stack     []object.Object
 	globals   []object.Object
 	sp        int // Stack pointer: always points to the next free slot in the stack. Top of stack is stack[ip-1]
@@ -33,7 +33,7 @@ type VM struct {
 
 func New() *VM {
 	return &VM{
-		constants: []object.Object{},
+		constants: &[]object.Object{},
 		stack:     make([]object.Object, StackSize),
 		globals:   make([]object.Object, GlobalSize),
 		sp:        0,
@@ -41,7 +41,7 @@ func New() *VM {
 	}
 }
 
-func (vm *VM) Next(constants []object.Object, opCodes []byte) {
+func (vm *VM) Next(constants *[]object.Object, opCodes []byte) {
 	vm.constants = constants
 	vm.currFrame.opCodes = opCodes
 	vm.currFrame.ip = 0
@@ -136,7 +136,7 @@ func (vm *VM) doStoreGlobal(index int) {
 }
 
 func (vm *VM) doLoadConst(index int) {
-	_ = vm.push(vm.constants[index])
+	_ = vm.push((*vm.constants)[index])
 }
 
 func (vm *VM) doList(llen int) {

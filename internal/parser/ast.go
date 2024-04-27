@@ -553,7 +553,8 @@ func (function *Function) Eval(env *object.Env) object.Object {
 }
 
 func (function *Function) Compile(c *compile.Compiler) (err error) {
-	nc := compile.New()
+	nc := c.NewForFunction()
+
 	err = function.Body.Compile(nc)
 	if err != nil {
 		return err

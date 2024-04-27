@@ -63,7 +63,6 @@ func VMREPL() {
 		}
 		machine.Next(c.Constants, c.OpCodes.Output())
 		c.OpCodes = []compile.Instruction{}
-		c.Constants = []object.Object{}
 		if err = machine.Run(); err != nil {
 			fmt.Printf("runtime error: %v\n", err)
 			continue

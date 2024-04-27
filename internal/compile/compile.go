@@ -55,18 +55,27 @@ type Compilable interface {
 }
 
 type Compiler struct {
-	Constants []object.Object
+	Constants *[]object.Object
 	OpCodes   Instructions
 	*SymbolTable
 }
 
 func New() *Compiler {
 	c := &Compiler{
-		Constants:   []object.Object{},
+		Constants:   &[]object.Object{},
 		OpCodes:     []Instruction{},
 		SymbolTable: NewSymbolTable(),
 	}
 	return c
+}
+
+func (c *Compiler) NewForFunction() *Compiler {
+	nc := &Compiler{
+		Constants:   c.Constants,
+		OpCodes:     []Instruction{},
+		SymbolTable: NewSymbolTable(),
+	}
+	return nc
 }
 
 func (c *Compiler) OpArg(op code.OpCode, arg uint32) {
@@ -90,13 +99,18 @@ func (c *Compiler) Op(op code.OpCode) {
 
 // Add constant, return the index into the Consts tuple.
 func (c *Compiler) Const(o object.Object) uint32 {
-	for i, v := range c.Constants {
+loop:
+	for i, v := range *c.Constants {
+		switch o.Type() {
+		case object.ListType, object.FunctionType, object.FunctionCompiledType:
+			break loop
+		}
 		if o.Type() == v.Type() && o.String() == v.String() {
 			return uint32(i)
 		}
 	}
-	c.Constants = append(c.Constants, o)
-	return uint32(len(c.Constants) - 1)
+	*c.Constants = append(*c.Constants, o)
+	return uint32(len(*c.Constants) - 1)
 }
 
 func (c *Compiler) LoadSymbol(s Symbol) {
