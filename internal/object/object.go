@@ -116,6 +116,7 @@ func (function *Function) String() string {
 type FunctionCompiled struct {
 	Instructions []byte
 	ParamsCnt    int8
+	LocalCnt     int
 }
 
 func (functioncompiled *FunctionCompiled) Type() Type {

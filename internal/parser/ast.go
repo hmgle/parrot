@@ -562,14 +562,17 @@ func (function *Function) Compile(c *compile.Compiler) (err error) {
 	f := object.FunctionCompiled{
 		Instructions: nc.OpCodes.Output(),
 		ParamsCnt:    int8(len(function.Params)),
+		LocalCnt:     nc.SymbolTable.NumDefinitions,
 	}
 	c.OpArg(code.OpConstant, c.Const(&f))
 
-	symbol := c.Define(function.Name)
-	if symbol.Scope == compile.GlobalScope {
-		c.OpArg(code.OpSetGlobal, uint32(symbol.Index))
-	} else {
-		c.OpArg(code.OpSetLocal, uint32(symbol.Index))
+	if function.Name != "" {
+		symbol := c.Define(function.Name)
+		if symbol.Scope == compile.GlobalScope {
+			c.OpArg(code.OpSetGlobal, uint32(symbol.Index))
+		} else {
+			c.OpArg(code.OpSetLocal, uint32(symbol.Index))
+		}
 	}
 	return nil
 }

@@ -18,9 +18,10 @@ var (
 )
 
 type Frame struct {
-	opCodes []byte
-	ip      int // instruction pointer
-	parent  *Frame
+	opCodes     []byte
+	ip          int // instruction pointer
+	basePointer int // the stack base pointer for the function call
+	parent      *Frame
 }
 
 type VM struct {
@@ -95,6 +96,14 @@ func (vm *VM) Run() (err error) {
 			arg := code.ReadUint32(vm.currFrame.opCodes[vm.currFrame.ip : vm.currFrame.ip+4])
 			vm.doGetGlobal(int(arg))
 			vm.currFrame.ip += 4
+		case code.OpSetLocal:
+			arg := code.ReadUint32(vm.currFrame.opCodes[vm.currFrame.ip : vm.currFrame.ip+4])
+			vm.doStoreLocal(int(arg))
+			vm.currFrame.ip += 4
+		case code.OpGetLocal:
+			arg := code.ReadUint32(vm.currFrame.opCodes[vm.currFrame.ip : vm.currFrame.ip+4])
+			vm.doGetLocal(int(arg))
+			vm.currFrame.ip += 4
 		case code.OpList:
 			arg := code.ReadUint32(vm.currFrame.opCodes[vm.currFrame.ip : vm.currFrame.ip+4])
 			vm.doList(int(arg))
@@ -109,7 +118,7 @@ func (vm *VM) Run() (err error) {
 	return err
 }
 
-func (vm *VM) doCall() error {
+func (vm *VM) doCall() (err error) {
 	f := vm.pop()
 	if f.Type() != object.FunctionCompiledType {
 		return fmt.Errorf("not function type")
@@ -117,22 +126,37 @@ func (vm *VM) doCall() error {
 	fn := f.(*object.FunctionCompiled)
 	pf := vm.currFrame
 	nf := Frame{
-		opCodes: fn.Instructions,
-		ip:      0,
-		parent:  pf,
+		opCodes:     fn.Instructions,
+		ip:          0,
+		basePointer: vm.sp,
+		parent:      pf,
 	}
 	vm.currFrame = &nf
-	err := vm.Run()
+	vm.sp = nf.basePointer + fn.LocalCnt
+	err = vm.Run()
+	if err != nil {
+		return
+	}
+	ret := vm.pop()
 	vm.currFrame = pf
-	return err
+	vm.sp = nf.basePointer
+	return vm.push(ret)
+}
+
+func (vm *VM) doStoreGlobal(index int) {
+	vm.globals[index] = vm.pop()
 }
 
 func (vm *VM) doGetGlobal(index int) {
 	_ = vm.push(vm.globals[index])
 }
 
-func (vm *VM) doStoreGlobal(index int) {
-	vm.globals[index] = vm.pop()
+func (vm *VM) doStoreLocal(index int) {
+	vm.stack[vm.currFrame.basePointer+index] = vm.pop()
+}
+
+func (vm *VM) doGetLocal(index int) {
+	_ = vm.push(vm.stack[vm.currFrame.basePointer+index])
 }
 
 func (vm *VM) doLoadConst(index int) {

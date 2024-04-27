@@ -73,7 +73,7 @@ func (c *Compiler) NewForFunction() *Compiler {
 	nc := &Compiler{
 		Constants:   c.Constants,
 		OpCodes:     []Instruction{},
-		SymbolTable: NewSymbolTable(),
+		SymbolTable: NewEnclosedSymbolTable(c.SymbolTable),
 	}
 	return nc
 }
