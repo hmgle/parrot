@@ -129,22 +129,15 @@ func (vm *VM) doCall(argsCnt int) (err error) {
 	if fn.ParamsCnt != int8(argsCnt) {
 		return fmt.Errorf("wrong number of arguments: expected %d, got %d", fn.ParamsCnt, argsCnt)
 	}
-	args := make([]object.Object, argsCnt)
-	for i := range argsCnt {
-		args[i] = vm.pop()
-	}
 	pf := vm.currFrame
 	nf := Frame{
 		opCodes:     fn.Instructions,
 		ip:          0,
-		basePointer: vm.sp,
+		basePointer: vm.sp - argsCnt,
 		parent:      pf,
 	}
 	vm.currFrame = &nf
 	vm.sp = nf.basePointer + fn.LocalCnt
-	for i := range args {
-		vm.stack[nf.basePointer+i] = args[len(args)-i-1]
-	}
 	err = vm.Run()
 	if err != nil {
 		return
