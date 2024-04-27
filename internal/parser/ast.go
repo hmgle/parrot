@@ -482,16 +482,16 @@ func (call *Call) Eval(env *object.Env) object.Object {
 	}
 }
 
-func (call *Call) Compile(c *compile.Compiler) error {
-	err := call.fn.Compile(c)
-	if err != nil {
-		return err
-	}
+func (call *Call) Compile(c *compile.Compiler) (err error) {
 	for _, arg := range call.args {
 		err = arg.Compile(c)
 		if err != nil {
 			return err
 		}
+	}
+	err = call.fn.Compile(c)
+	if err != nil {
+		return err
 	}
 	c.OpArg(code.OpCall, uint32(len(call.args)))
 	return nil

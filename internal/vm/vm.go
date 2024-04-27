@@ -121,10 +121,6 @@ func (vm *VM) Run() (err error) {
 }
 
 func (vm *VM) doCall(argsCnt int) (err error) {
-	args := make([]object.Object, argsCnt)
-	for i := range argsCnt {
-		args[i] = vm.pop()
-	}
 	f := vm.pop()
 	if f.Type() != object.FunctionCompiledType {
 		return fmt.Errorf("not function type")
@@ -132,6 +128,10 @@ func (vm *VM) doCall(argsCnt int) (err error) {
 	fn := f.(*object.FunctionCompiled)
 	if fn.ParamsCnt != int8(argsCnt) {
 		return fmt.Errorf("wrong number of arguments: expected %d, got %d", fn.ParamsCnt, argsCnt)
+	}
+	args := make([]object.Object, argsCnt)
+	for i := range argsCnt {
+		args[i] = vm.pop()
 	}
 	pf := vm.currFrame
 	nf := Frame{
