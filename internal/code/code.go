@@ -1,5 +1,7 @@
 package code
 
+import "encoding/binary"
+
 type OpCode byte
 
 const (
@@ -29,7 +31,6 @@ const (
 	OpDiv
 	OpMod
 
-	OpCall
 	OpReturnValue
 
 	OpCurrentClosure
@@ -45,9 +46,16 @@ const (
 	OpGetFree
 
 	OpList
+
+	OpFunction
+	OpCall
 )
 
 // If op has an argument
 func (op OpCode) HasArg() bool {
 	return op > HAVE_ARGUMENT
+}
+
+func ReadUint32(ins []byte) uint32 {
+	return binary.BigEndian.Uint32(ins)
 }

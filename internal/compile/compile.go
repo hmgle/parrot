@@ -1,9 +1,15 @@
 package compile
 
 import (
+	"bytes"
+	"encoding/binary"
 	"parrot/internal/code"
 	"parrot/internal/object"
 )
+
+type Instruction interface {
+	Output() []byte
+}
 
 // Resolved or unresolved instruction stream
 type Instructions []Instruction
@@ -13,8 +19,14 @@ func (is *Instructions) Add(i Instruction) {
 	*is = append(*is, i)
 }
 
-type Instruction interface {
-	Output() []byte
+var _ Instruction = (*Instructions)(nil)
+
+func (is *Instructions) Output() []byte {
+	var buf bytes.Buffer
+	for _, i := range *is {
+		buf.Write(i.Output())
+	}
+	return buf.Bytes()
 }
 
 type Op struct {
@@ -22,7 +34,7 @@ type Op struct {
 }
 
 func (op *Op) Output() []byte {
-	panic("not implemented") // TODO: Implement
+	return []byte{byte(op.Op)}
 }
 
 type OpArg struct {
@@ -31,7 +43,11 @@ type OpArg struct {
 }
 
 func (oparg *OpArg) Output() []byte {
-	panic("not implemented") // TODO: Implement
+	ret := [5]byte{
+		byte(oparg.Op),
+	}
+	binary.BigEndian.PutUint32(ret[1:], oparg.Arg)
+	return ret[:]
 }
 
 type Compilable interface {
@@ -39,18 +55,27 @@ type Compilable interface {
 }
 
 type Compiler struct {
-	Constants []object.Object
+	Constants *[]object.Object
 	OpCodes   Instructions
 	*SymbolTable
 }
 
 func New() *Compiler {
 	c := &Compiler{
-		Constants:   []object.Object{},
+		Constants:   &[]object.Object{},
 		OpCodes:     []Instruction{},
 		SymbolTable: NewSymbolTable(),
 	}
 	return c
+}
+
+func (c *Compiler) NewForFunction() *Compiler {
+	nc := &Compiler{
+		Constants:   c.Constants,
+		OpCodes:     []Instruction{},
+		SymbolTable: NewEnclosedSymbolTable(c.SymbolTable),
+	}
+	return nc
 }
 
 func (c *Compiler) OpArg(op code.OpCode, arg uint32) {
@@ -74,13 +99,18 @@ func (c *Compiler) Op(op code.OpCode) {
 
 // Add constant, return the index into the Consts tuple.
 func (c *Compiler) Const(o object.Object) uint32 {
-	for i, v := range c.Constants {
+loop:
+	for i, v := range *c.Constants {
+		switch o.Type() {
+		case object.ListType, object.FunctionType, object.FunctionCompiledType:
+			break loop
+		}
 		if o.Type() == v.Type() && o.String() == v.String() {
 			return uint32(i)
 		}
 	}
-	c.Constants = append(c.Constants, o)
-	return uint32(len(c.Constants) - 1)
+	*c.Constants = append(*c.Constants, o)
+	return uint32(len(*c.Constants) - 1)
 }
 
 func (c *Compiler) LoadSymbol(s Symbol) {

@@ -17,6 +17,8 @@ const (
 	ListType     Type = "list"
 	FunctionType Type = "function"
 	BuiltinType  Type = "builtin"
+
+	FunctionCompiledType Type = "functioncompiled"
 )
 
 func (t Type) String() string {
@@ -109,4 +111,18 @@ func (function *Function) Type() Type {
 
 func (function *Function) String() string {
 	return fmt.Sprintf("fn(%s) { %v }", strings.Join(function.Params, ", "), function.Body)
+}
+
+type FunctionCompiled struct {
+	Instructions []byte
+	ParamsCnt    int8
+	LocalCnt     int
+}
+
+func (functioncompiled *FunctionCompiled) Type() Type {
+	return FunctionCompiledType
+}
+
+func (functioncompiled *FunctionCompiled) String() string {
+	return "<functioncompiled>"
 }

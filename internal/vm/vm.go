@@ -3,7 +3,6 @@ package vm
 import (
 	"fmt"
 	"parrot/internal/code"
-	"parrot/internal/compile"
 	"parrot/internal/object"
 )
 
@@ -18,100 +17,155 @@ var (
 	Null  = object.NULLObj
 )
 
+type Frame struct {
+	opCodes     []byte
+	ip          int // instruction pointer
+	basePointer int // the stack base pointer for the function call
+	parent      *Frame
+}
+
 type VM struct {
-	constants []object.Object
+	constants *[]object.Object
 	stack     []object.Object
 	globals   []object.Object
-	ip        int // instruction pointer
 	sp        int // Stack pointer: always points to the next free slot in the stack. Top of stack is stack[ip-1]
-	opCodes   compile.Instructions
+	currFrame *Frame
 }
 
 func New() *VM {
 	return &VM{
-		constants: []object.Object{},
+		constants: &[]object.Object{},
 		stack:     make([]object.Object, StackSize),
 		globals:   make([]object.Object, GlobalSize),
-		ip:        0,
 		sp:        0,
-		opCodes:   []compile.Instruction{},
+		currFrame: &Frame{},
 	}
 }
 
-func (vm *VM) Next(constants []object.Object, opCodes compile.Instructions) {
-	vm.constants = append(vm.constants, constants...)
-	vm.opCodes = opCodes
-	vm.ip = 0
+func (vm *VM) Next(constants *[]object.Object, opCodes []byte) {
+	vm.constants = constants
+	vm.currFrame.opCodes = opCodes
+	vm.currFrame.ip = 0
+	vm.sp = 0
 }
 
 func (vm *VM) Run() (err error) {
 	// TODO
-	for vm.ip < len(vm.opCodes) {
-		op := vm.opCodes[vm.ip]
-		vm.ip += 1
-		switch o := op.(type) {
-		case *compile.Op:
-			switch o.Op {
-			case code.OpPop:
-				vm.pop()
-			case code.OpTrue:
-				err = vm.push(True)
-			case code.OpFalse:
-				err = vm.push(False)
-			case code.OpAnd:
-				vm.doAND()
-			case code.OpOr:
-				vm.doOR()
-			case code.OpCmpEQ, code.OpCmpNE, code.OpCmpLE, code.OpCmpGE, code.OpCmpLT, code.OpCmpGT:
-				vm.doCmp(o.Op)
-			case code.OpAdd:
-				vm.doAdd()
-			case code.OpSub:
-				vm.doSub()
-			case code.OpMul:
-				vm.doMul()
-			case code.OpDiv:
-				vm.doDiv()
-			case code.OpMod:
-				vm.doMod()
-			case code.OpMinus:
-				vm.doMinus()
-			case code.OpBang:
-				vm.doBang()
-			case code.OpIndex:
-				vm.doIndex()
-			default:
-				panic("not implemented") // TODO: Implement
-			}
-		case *compile.OpArg:
-			switch o.Op {
-			case code.OpConstant:
-				vm.doLoadConst(int(o.Arg))
-			case code.OpSetGlobal:
-				vm.doStoreGlobal(int(o.Arg))
-			case code.OpGetGlobal:
-				vm.doGetGlobal(int(o.Arg))
-			case code.OpList:
-				vm.doList(int(o.Arg))
-			default:
-				panic("not implemented") // TODO: Implement
-			}
+	for vm.currFrame.ip < len(vm.currFrame.opCodes) {
+		op := vm.currFrame.opCodes[vm.currFrame.ip]
+		opc := code.OpCode(op)
+		vm.currFrame.ip += 1
+		switch opc {
+		case code.OpPop:
+			vm.pop()
+		case code.OpTrue:
+			err = vm.push(True)
+		case code.OpFalse:
+			err = vm.push(False)
+		case code.OpAnd:
+			vm.doAND()
+		case code.OpOr:
+			vm.doOR()
+		case code.OpCmpEQ, code.OpCmpNE, code.OpCmpLE, code.OpCmpGE, code.OpCmpLT, code.OpCmpGT:
+			vm.doCmp(opc)
+		case code.OpAdd:
+			vm.doAdd()
+		case code.OpSub:
+			vm.doSub()
+		case code.OpMul:
+			vm.doMul()
+		case code.OpDiv:
+			vm.doDiv()
+		case code.OpMod:
+			vm.doMod()
+		case code.OpMinus:
+			vm.doMinus()
+		case code.OpBang:
+			vm.doBang()
+		case code.OpIndex:
+			vm.doIndex()
+		case code.OpConstant:
+			arg := code.ReadUint32(vm.currFrame.opCodes[vm.currFrame.ip : vm.currFrame.ip+4])
+			vm.doLoadConst(int(arg))
+			vm.currFrame.ip += 4
+		case code.OpSetGlobal:
+			arg := code.ReadUint32(vm.currFrame.opCodes[vm.currFrame.ip : vm.currFrame.ip+4])
+			vm.doStoreGlobal(int(arg))
+			vm.currFrame.ip += 4
+		case code.OpGetGlobal:
+			arg := code.ReadUint32(vm.currFrame.opCodes[vm.currFrame.ip : vm.currFrame.ip+4])
+			vm.doGetGlobal(int(arg))
+			vm.currFrame.ip += 4
+		case code.OpSetLocal:
+			arg := code.ReadUint32(vm.currFrame.opCodes[vm.currFrame.ip : vm.currFrame.ip+4])
+			vm.doStoreLocal(int(arg))
+			vm.currFrame.ip += 4
+		case code.OpGetLocal:
+			arg := code.ReadUint32(vm.currFrame.opCodes[vm.currFrame.ip : vm.currFrame.ip+4])
+			vm.doGetLocal(int(arg))
+			vm.currFrame.ip += 4
+		case code.OpList:
+			arg := code.ReadUint32(vm.currFrame.opCodes[vm.currFrame.ip : vm.currFrame.ip+4])
+			vm.doList(int(arg))
+			vm.currFrame.ip += 4
+		case code.OpCall:
+			arg := code.ReadUint32(vm.currFrame.opCodes[vm.currFrame.ip : vm.currFrame.ip+4])
+			err = vm.doCall(int(arg))
+			vm.currFrame.ip += 4
+		default:
+			panic("not implemented") // TODO: Implement
+
 		}
 	}
-
 	return err
 }
 
-func (vm *VM) doGetGlobal(index int) {
-	_ = vm.push(vm.globals[index])
+func (vm *VM) doCall(argsCnt int) (err error) {
+	f := vm.pop()
+	if f.Type() != object.FunctionCompiledType {
+		return fmt.Errorf("not function type")
+	}
+	fn := f.(*object.FunctionCompiled)
+	if fn.ParamsCnt != int8(argsCnt) {
+		return fmt.Errorf("wrong number of arguments: expected %d, got %d", fn.ParamsCnt, argsCnt)
+	}
+	pf := vm.currFrame
+	nf := Frame{
+		opCodes:     fn.Instructions,
+		ip:          0,
+		basePointer: vm.sp - argsCnt,
+		parent:      pf,
+	}
+	vm.currFrame = &nf
+	vm.sp = nf.basePointer + fn.LocalCnt
+	err = vm.Run()
+	if err != nil {
+		return
+	}
+	ret := vm.pop()
+	vm.currFrame = pf
+	vm.sp = nf.basePointer
+	return vm.push(ret)
 }
 
 func (vm *VM) doStoreGlobal(index int) {
 	vm.globals[index] = vm.pop()
 }
 
+func (vm *VM) doGetGlobal(index int) {
+	_ = vm.push(vm.globals[index])
+}
+
+func (vm *VM) doStoreLocal(index int) {
+	vm.stack[vm.currFrame.basePointer+index] = vm.pop()
+}
+
+func (vm *VM) doGetLocal(index int) {
+	_ = vm.push(vm.stack[vm.currFrame.basePointer+index])
+}
+
 func (vm *VM) doLoadConst(index int) {
-	_ = vm.push(vm.constants[index])
+	_ = vm.push((*vm.constants)[index])
 }
 
 func (vm *VM) doList(llen int) {

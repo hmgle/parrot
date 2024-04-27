@@ -235,14 +235,20 @@ func (prefixexpr *PrefixExpr) Eval(env *object.Env) object.Object {
 	return object.NewError("runtime error: %s%s", prefixexpr.Literal, right.String())
 }
 
-func (prefixexpr *PrefixExpr) Compile(c *compile.Compiler) error {
+func (prefixexpr *PrefixExpr) Compile(c *compile.Compiler) (err error) {
 	switch prefixexpr.TokenType {
 	case token.BANG:
-		prefixexpr.Right.Compile(c)
+		err = prefixexpr.Right.Compile(c)
+		if err != nil {
+			return
+		}
 		c.Op(code.OpBang)
 		return nil
 	case token.MINUS:
-		prefixexpr.Right.Compile(c)
+		err = prefixexpr.Right.Compile(c)
+		if err != nil {
+			return
+		}
 		c.Op(code.OpMinus)
 		return nil
 	case token.ADD:
@@ -476,9 +482,19 @@ func (call *Call) Eval(env *object.Env) object.Object {
 	}
 }
 
-func (call *Call) Compile(c *compile.Compiler) error {
-	// TODO
-	panic("not implemented")
+func (call *Call) Compile(c *compile.Compiler) (err error) {
+	for _, arg := range call.args {
+		err = arg.Compile(c)
+		if err != nil {
+			return err
+		}
+	}
+	err = call.fn.Compile(c)
+	if err != nil {
+		return err
+	}
+	c.OpArg(code.OpCall, uint32(len(call.args)))
+	return nil
 }
 
 type Assign struct {
@@ -499,9 +515,12 @@ func (assign *Assign) Eval(env *object.Env) object.Object {
 	return env.Set(lv, rv)
 }
 
-func (assign *Assign) Compile(c *compile.Compiler) error {
+func (assign *Assign) Compile(c *compile.Compiler) (err error) {
 	symbol := c.Define(assign.Left.String())
-	assign.Right.Compile(c)
+	err = assign.Right.Compile(c)
+	if err != nil {
+		return
+	}
 	if symbol.Scope == compile.GlobalScope {
 		c.OpArg(code.OpSetGlobal, uint32(symbol.Index))
 	} else {
@@ -539,9 +558,33 @@ func (function *Function) Eval(env *object.Env) object.Object {
 	return fn
 }
 
-func (function *Function) Compile(c *compile.Compiler) error {
-	// TODO
-	panic("not implemented")
+func (function *Function) Compile(c *compile.Compiler) (err error) {
+	nc := c.NewForFunction()
+
+	for _, param := range function.Params {
+		nc.Define(param.Name)
+	}
+
+	err = function.Body.Compile(nc)
+	if err != nil {
+		return err
+	}
+	f := object.FunctionCompiled{
+		Instructions: nc.OpCodes.Output(),
+		ParamsCnt:    int8(len(function.Params)),
+		LocalCnt:     nc.SymbolTable.NumDefinitions,
+	}
+	c.OpArg(code.OpConstant, c.Const(&f))
+
+	if function.Name != "" {
+		symbol := c.Define(function.Name)
+		if symbol.Scope == compile.GlobalScope {
+			c.OpArg(code.OpSetGlobal, uint32(symbol.Index))
+		} else {
+			c.OpArg(code.OpSetLocal, uint32(symbol.Index))
+		}
+	}
+	return nil
 }
 
 type InfixExpr struct {
@@ -672,9 +715,15 @@ func evalStringInfix(infixexpr *InfixExpr, left, right object.Object) object.Obj
 		infixexpr.Pos, left.String(), infixexpr.Literal, right.String())
 }
 
-func (infixexpr *InfixExpr) Compile(c *compile.Compiler) error {
-	infixexpr.Left.Compile(c)
-	infixexpr.Right.Compile(c)
+func (infixexpr *InfixExpr) Compile(c *compile.Compiler) (err error) {
+	err = infixexpr.Left.Compile(c)
+	if err != nil {
+		return
+	}
+	err = infixexpr.Right.Compile(c)
+	if err != nil {
+		return
+	}
 	var op code.OpCode
 	switch infixexpr.TokenType {
 	case token.ADD:

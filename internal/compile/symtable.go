@@ -29,7 +29,7 @@ type Symbol struct {
 // and "Outer" which defines it's parent scope
 type SymbolTable struct {
 	store          map[string]Symbol
-	numDefinitions int
+	NumDefinitions int
 	Outer          *SymbolTable
 	FreeSymbols    []Symbol
 }
@@ -58,7 +58,7 @@ func NewEnclosedSymbolTable(outer *SymbolTable) *SymbolTable {
 func (s *SymbolTable) Define(name string) Symbol {
 	symbol := Symbol{
 		Name:  name,
-		Index: s.numDefinitions,
+		Index: s.NumDefinitions,
 	}
 
 	if s.Outer == nil {
@@ -68,7 +68,7 @@ func (s *SymbolTable) Define(name string) Symbol {
 	}
 
 	s.store[name] = symbol
-	s.numDefinitions++
+	s.NumDefinitions++
 
 	return symbol
 }
