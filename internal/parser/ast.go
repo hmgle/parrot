@@ -483,8 +483,12 @@ func (call *Call) Eval(env *object.Env) object.Object {
 }
 
 func (call *Call) Compile(c *compile.Compiler) error {
-	// TODO
-	panic("not implemented")
+	err := call.fn.Compile(c)
+	if err != nil {
+		return err
+	}
+	c.Op(code.OpCall)
+	return nil
 }
 
 type Assign struct {
@@ -548,9 +552,25 @@ func (function *Function) Eval(env *object.Env) object.Object {
 	return fn
 }
 
-func (function *Function) Compile(c *compile.Compiler) error {
-	// TODO
-	panic("not implemented")
+func (function *Function) Compile(c *compile.Compiler) (err error) {
+	nc := compile.New()
+	err = function.Body.Compile(nc)
+	if err != nil {
+		return err
+	}
+	f := object.FunctionCompiled{
+		Instructions: nc.OpCodes.Output(),
+		ParamsCnt:    int8(len(function.Params)),
+	}
+	c.OpArg(code.OpConstant, c.Const(&f))
+
+	symbol := c.Define(function.Name)
+	if symbol.Scope == compile.GlobalScope {
+		c.OpArg(code.OpSetGlobal, uint32(symbol.Index))
+	} else {
+		c.OpArg(code.OpSetLocal, uint32(symbol.Index))
+	}
+	return nil
 }
 
 type InfixExpr struct {

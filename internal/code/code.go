@@ -47,6 +47,8 @@ const (
 	OpGetFree
 
 	OpList
+
+	OpFunction
 )
 
 // If op has an argument

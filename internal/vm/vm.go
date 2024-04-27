@@ -17,13 +17,18 @@ var (
 	Null  = object.NULLObj
 )
 
+type Frame struct {
+	opCodes []byte
+	ip      int // instruction pointer
+	parent  *Frame
+}
+
 type VM struct {
 	constants []object.Object
 	stack     []object.Object
 	globals   []object.Object
-	ip        int // instruction pointer
 	sp        int // Stack pointer: always points to the next free slot in the stack. Top of stack is stack[ip-1]
-	opCodes   []byte
+	currFrame *Frame
 }
 
 func New() *VM {
@@ -31,25 +36,24 @@ func New() *VM {
 		constants: []object.Object{},
 		stack:     make([]object.Object, StackSize),
 		globals:   make([]object.Object, GlobalSize),
-		ip:        0,
 		sp:        0,
-		opCodes:   []byte{},
+		currFrame: &Frame{},
 	}
 }
 
 func (vm *VM) Next(constants []object.Object, opCodes []byte) {
 	vm.constants = constants
-	vm.opCodes = opCodes
-	vm.ip = 0
+	vm.currFrame.opCodes = opCodes
+	vm.currFrame.ip = 0
 	vm.sp = 0
 }
 
 func (vm *VM) Run() (err error) {
 	// TODO
-	for vm.ip < len(vm.opCodes) {
-		op := vm.opCodes[vm.ip]
+	for vm.currFrame.ip < len(vm.currFrame.opCodes) {
+		op := vm.currFrame.opCodes[vm.currFrame.ip]
 		opc := code.OpCode(op)
-		vm.ip += 1
+		vm.currFrame.ip += 1
 		switch opc {
 		case code.OpPop:
 			vm.pop()
@@ -80,26 +84,46 @@ func (vm *VM) Run() (err error) {
 		case code.OpIndex:
 			vm.doIndex()
 		case code.OpConstant:
-			arg := code.ReadUint32(vm.opCodes[vm.ip : vm.ip+4])
+			arg := code.ReadUint32(vm.currFrame.opCodes[vm.currFrame.ip : vm.currFrame.ip+4])
 			vm.doLoadConst(int(arg))
-			vm.ip += 4
+			vm.currFrame.ip += 4
 		case code.OpSetGlobal:
-			arg := code.ReadUint32(vm.opCodes[vm.ip : vm.ip+4])
+			arg := code.ReadUint32(vm.currFrame.opCodes[vm.currFrame.ip : vm.currFrame.ip+4])
 			vm.doStoreGlobal(int(arg))
-			vm.ip += 4
+			vm.currFrame.ip += 4
 		case code.OpGetGlobal:
-			arg := code.ReadUint32(vm.opCodes[vm.ip : vm.ip+4])
+			arg := code.ReadUint32(vm.currFrame.opCodes[vm.currFrame.ip : vm.currFrame.ip+4])
 			vm.doGetGlobal(int(arg))
-			vm.ip += 4
+			vm.currFrame.ip += 4
 		case code.OpList:
-			arg := code.ReadUint32(vm.opCodes[vm.ip : vm.ip+4])
+			arg := code.ReadUint32(vm.currFrame.opCodes[vm.currFrame.ip : vm.currFrame.ip+4])
 			vm.doList(int(arg))
-			vm.ip += 4
+			vm.currFrame.ip += 4
+		case code.OpCall:
+			err = vm.doCall()
 		default:
 			panic("not implemented") // TODO: Implement
 
 		}
 	}
+	return err
+}
+
+func (vm *VM) doCall() error {
+	f := vm.pop()
+	if f.Type() != object.FunctionCompiledType {
+		return fmt.Errorf("not function type")
+	}
+	fn := f.(*object.FunctionCompiled)
+	pf := vm.currFrame
+	nf := Frame{
+		opCodes: fn.Instructions,
+		ip:      0,
+		parent:  pf,
+	}
+	vm.currFrame = &nf
+	err := vm.Run()
+	vm.currFrame = pf
 	return err
 }
 
