@@ -31,3 +31,20 @@ func (e *Env) Set(name string, obj Object) Object {
 	e.Store[name] = obj
 	return obj
 }
+
+func (e *Env) Upsert(name string, obj Object) Object {
+	return e._upsert(name, obj, e)
+}
+
+func (e *Env) _upsert(name string, obj Object, origin *Env) Object {
+	_, ok := e.Store[name]
+	if ok {
+		e.Store[name] = obj
+		return obj
+	}
+	if e.Outer != nil {
+		e = e.Outer
+		return e._upsert(name, obj, origin)
+	}
+	return origin.Set(name, obj)
+}

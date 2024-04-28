@@ -512,7 +512,7 @@ func (assign *Assign) String() string {
 func (assign *Assign) Eval(env *object.Env) object.Object {
 	lv := assign.Left.String()
 	rv := assign.Right.Eval(env)
-	return env.Set(lv, rv)
+	return env.Upsert(lv, rv)
 }
 
 func (assign *Assign) Compile(c *compile.Compiler) (err error) {
