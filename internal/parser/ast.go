@@ -472,7 +472,7 @@ func (call *Call) Eval(env *object.Env) object.Object {
 				len(call.args),
 			)
 		}
-		newEnv := object.NewEnvWrap(env)
+		newEnv := object.NewEnvWrap(fn.Env)
 		for i, a := range call.args {
 			newEnv.Set(fn.Params[i], a.Eval(env))
 		}
