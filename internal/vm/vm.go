@@ -28,7 +28,7 @@ type VM struct {
 	constants *[]object.Object
 	stack     []object.Object
 	globals   []object.Object
-	sp        int // Stack pointer: always points to the next free slot in the stack. Top of stack is stack[ip-1]
+	sp        int // Stack pointer: always points to the next free slot in the stack. Top of stack is stack[sp-1]
 	currFrame *Frame
 }
 
