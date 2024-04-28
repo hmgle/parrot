@@ -20,11 +20,14 @@ func NewEnvWrap(e *Env) *Env {
 }
 
 func (e *Env) Get(name string) (Object, bool) {
-	obj, ok := e.Store[name]
-	if !ok && e.Outer != nil {
-		return e.Outer.Get(name)
+	currEnv := e
+	for currEnv != nil {
+		if obj, ok := currEnv.Store[name]; ok {
+			return obj, true
+		}
+		currEnv = currEnv.Outer
 	}
-	return obj, ok
+	return nil, false
 }
 
 func (e *Env) Set(name string, obj Object) Object {
@@ -33,18 +36,14 @@ func (e *Env) Set(name string, obj Object) Object {
 }
 
 func (e *Env) Upsert(name string, obj Object) Object {
-	return e._upsert(name, obj, e)
-}
-
-func (e *Env) _upsert(name string, obj Object, origin *Env) Object {
-	_, ok := e.Store[name]
-	if ok {
-		e.Store[name] = obj
-		return obj
+	currEnv := e
+	for currEnv != nil {
+		if _, ok := currEnv.Store[name]; ok {
+			currEnv.Store[name] = obj
+			return obj
+		}
+		currEnv = currEnv.Outer
 	}
-	if e.Outer != nil {
-		e = e.Outer
-		return e._upsert(name, obj, origin)
-	}
-	return origin.Set(name, obj)
+	e.Store[name] = obj
+	return obj
 }
